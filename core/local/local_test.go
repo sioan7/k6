@@ -974,23 +974,7 @@ func TestExecutionSchedulerIsRunning(t *testing.T) {
 	assert.NoError(t, <-err)
 }
 
-type mockDNSRunner struct {
-	*js.Runner
-	resolver *testutils.MockResolver
-}
-
-// NewVU initializes a new VU replacing its resolver with a MockResolver.
-func (r *mockDNSRunner) NewVU(id int64, out chan<- stats.SampleContainer) (lib.InitializedVU, error) {
-	initVU, err := r.Runner.NewVU(id, out)
-	if err != nil {
-		return nil, err
-	}
-	(initVU.(*js.VU)).Dialer.Resolver = r.resolver
-	return initVU, nil
-}
-
 func TestDNS(t *testing.T) {
-	t.Parallel()
 	tb := httpmultibin.NewHTTPMultiBin(t)
 	defer tb.Cleanup()
 	sr := tb.Replacer.Replace
@@ -1008,6 +992,11 @@ func TestDNS(t *testing.T) {
 			const res = http.get("http://myhost:HTTPBIN_PORT/", { timeout: 50 });
 			sleep(0.45);  // not an even multiple of 0.5 to minimize races with asserts
 		}`)
+
+	mockRes := testutils.NewMockResolver(nil)
+	defaultRes := net.DefaultResolver
+	net.DefaultResolver = testutils.NewMockDNSServer(mockRes)
+	defer func() { net.DefaultResolver = defaultRes }()
 
 	t.Run("cache", func(t *testing.T) {
 		testCases := map[string]struct {
@@ -1033,6 +1022,10 @@ func TestDNS(t *testing.T) {
 		for name, tc := range testCases {
 			tc := tc
 			t.Run(name, func(t *testing.T) {
+				mockRes.Set("myhost", sr("HTTPBIN_IP"))
+				time.AfterFunc(2*time.Second, func() {
+					mockRes.Set("myhost", "127.0.0.254")
+				})
 				logger := logrus.New()
 				logger.SetOutput(testutils.NewTestOutput(t))
 				runner, err := js.New(logger, &loader.SourceData{
@@ -1040,14 +1033,9 @@ func TestDNS(t *testing.T) {
 				}, nil, lib.RuntimeOptions{})
 				require.NoError(t, err)
 
-				mr := &mockDNSRunner{runner, testutils.NewMockResolver(nil)}
-				ctx, cancel, execScheduler, samples := newTestExecutionScheduler(t, mr, logger, tc.opts)
+				ctx, cancel, execScheduler, samples := newTestExecutionScheduler(t, runner, logger, tc.opts)
 				defer cancel()
 
-				mr.resolver.Set("myhost", sr("HTTPBIN_IP"))
-				time.AfterFunc(1*time.Second, func() {
-					mr.resolver.Set("myhost", "127.0.0.254")
-				})
 				errCh := make(chan error, 1)
 				go func() { errCh <- execScheduler.Run(ctx, ctx, samples) }()
 

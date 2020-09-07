@@ -29,6 +29,7 @@ github.com/andybalholm/cascadia
 ## explicit
 github.com/daaku/go.zipexe
 # github.com/davecgh/go-spew v1.1.1 => github.com/davecgh/go-spew v1.1.0
+## explicit
 github.com/davecgh/go-spew/spew
 # github.com/dlclark/regexp2 v1.2.1-0.20200807145002-74bac81f00cf
 ## explicit
@@ -243,6 +244,7 @@ golang.org/x/crypto/ssh/terminal
 # golang.org/x/net v0.0.0-20200520004742-59133d7f0dd7 => golang.org/x/net v0.0.0-20181201002055-351d144fa1fc
 ## explicit
 golang.org/x/net/context
+golang.org/x/net/dns/dnsmessage
 golang.org/x/net/html
 golang.org/x/net/html/atom
 golang.org/x/net/http/httpguts
